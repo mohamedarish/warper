@@ -1,4 +1,6 @@
+#[derive(Default)]
 enum FocusedApp {
+    #[default]
     InputBox,
     HistoryBar,
     OutputBox,
@@ -10,8 +12,4 @@ pub struct App {
     focused_app: FocusedApp,
 }
 
-impl Default for FocusedApp {
-    fn default() -> Self {
-        Self::InputBox
-    }
-}
+impl App {}
