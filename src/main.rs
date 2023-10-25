@@ -1,4 +1,13 @@
-#![warn(clippy::nursery, clippy::unwrap_or_default, clippy::unwrap_used)]
+#![warn(
+    clippy::nursery,
+    clippy::unwrap_or_default,
+    // clippy::pedantic,
+    clippy::unwrap_used
+)]
+
+pub mod app;
+pub mod command;
+pub mod terminal;
 
 use std::process::Command;
 
@@ -8,7 +17,7 @@ use crossterm::event::{
 };
 use ratatui::{
     prelude::{Constraint, CrosstermBackend, Direction, Layout, Terminal},
-    style::{Color, Modifier, Style, Stylize},
+    style::{Color, Modifier, Style},
     widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph},
 };
 
@@ -40,8 +49,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut command = String::new();
 
     let mut list_filled_with_items = Vec::<ListItem>::new();
+
+    let mut right = 0;
+    let mut bottom = 0;
     loop {
         terminal.draw(|f| {
+            right = f.size().width * 8 / 10;
+            bottom = f.size().height * 9 / 10;
+
             frame_size = (f.size().width, f.size().height);
             let side_chart = Layout::default()
                 .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
@@ -75,6 +90,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ),
                     down_chart[0],
                 );
+            } else if focused == FocusArea::OutputArea {
+                f.render_widget(
+                    Block::default()
+                        .title("Paragraph")
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(Color::Yellow)),
+                    down_chart[0],
+                );
             } else {
                 f.render_widget(
                     Block::default()
@@ -82,8 +106,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .borders(Borders::ALL)
                         .border_type(BorderType::Rounded),
                     down_chart[0],
-                )
+                );
             }
+
             let items = List::new(list_filled_with_items.clone())
                 .highlight_style(
                     Style::default()
@@ -138,6 +163,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     side_chart[1],
                     &mut ListState::default().with_selected(Some(item_selected)),
                 );
+            } else if focused == FocusArea::History {
+                f.render_widget(
+                    Block::default()
+                        .title("History List")
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(Color::Yellow)),
+                    side_chart[1],
+                );
             } else {
                 f.render_widget(
                     Block::default()
@@ -145,7 +179,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .borders(Borders::ALL)
                         .border_type(BorderType::Rounded),
                     side_chart[1],
-                )
+                );
             }
         })?;
 
@@ -181,19 +215,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             {
                                 match code {
                                     KeyCode::Enter => {
+                                        if command == "exit" {
+                                            break;
+                                        }
+
                                         list_filled_with_items.push(ListItem::new(command.clone()));
+
                                         let mut split_command =
                                             command.split(' ').collect::<Vec<&str>>();
-                                        lotrem_ipsum.push(
-                                            String::from_utf8(
-                                                Command::new(split_command[0])
-                                                    .args(&mut split_command[1..])
+
+                                        let command_to_run = Command::new(split_command[0])
+                                            .args(&mut split_command[1..])
+                                            .output()
+                                            .map_or(
+                                                Command::new("echo")
+                                                    .arg(format!(
+                                                        "command execution failed: {command}"
+                                                    ))
                                                     .output()
-                                                    .expect("Cannot run command")
-                                                    .stdout,
-                                            )
-                                            .expect("Cannot get output"),
-                                        );
+                                                    .expect("No way this throws an error"),
+                                                |f| f,
+                                            );
+
+                                        let mut command_output =
+                                            String::from_utf8(command_to_run.stdout)
+                                                .expect("Cannot get output");
+
+                                        if command_output.is_empty() {
+                                            command_output =
+                                                String::from_utf8(command_to_run.stderr)
+                                                    .expect("Cannot get error");
+                                        }
+
+                                        lotrem_ipsum.push(command_output);
 
                                         item_selected = lotrem_ipsum.len() - 1;
                                         command = String::new();
@@ -232,13 +286,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let row = action.row;
                         let column = action.column;
 
-                        if column < 40 {
-                            continue;
-                        }
-
-                        item_selected = (row - 1) as usize;
-                        if item_selected >= lotrem_ipsum.len() {
-                            item_selected = lotrem_ipsum.len() - 1;
+                        if column < right {
+                            if row < bottom {
+                                focused = FocusArea::OutputArea;
+                            } else {
+                                focused = FocusArea::InputArea;
+                            }
+                        } else if !list_filled_with_items.is_empty() {
+                            focused = FocusArea::History;
+                            item_selected = (row - 1) as usize;
+                            if item_selected >= lotrem_ipsum.len() {
+                                item_selected = lotrem_ipsum.len() - 1;
+                            }
+                        } else {
+                            focused = FocusArea::History;
                         }
                     }
                 }

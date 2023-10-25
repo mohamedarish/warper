@@ -10,6 +10,9 @@ enum FocusedApp {
 pub struct App {
     should_quit: bool,
     focused_app: FocusedApp,
+    current_selection: usize,
+    // terminal: Terminal,
+    // commands: &'static Command
 }
 
-impl App {}
+// impl App {}
