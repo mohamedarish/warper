@@ -6,8 +6,8 @@
 )]
 
 pub mod app;
+pub mod backend;
 pub mod command;
-pub mod terminal;
 
 use std::process::Command;
 
@@ -45,10 +45,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut focused = FocusArea::InputArea;
     let mut item_selected = 0;
+    let mut current_command_number = 0;
 
     let mut command = String::new();
 
-    let mut list_filled_with_items = Vec::<ListItem>::new();
+    let mut list_filled_with_items = Vec::<String>::new();
+    let mut new_old_command = String::new();
 
     let mut right = 0;
     let mut bottom = 0;
@@ -109,7 +111,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
             }
 
-            let items = List::new(list_filled_with_items.clone())
+            let mut list_containing_items = Vec::<ListItem>::new();
+
+            for item in list_filled_with_items.clone() {
+                list_containing_items.push(ListItem::new(item));
+            }
+
+            let items = List::new(list_containing_items)
                 .highlight_style(
                     Style::default()
                         .add_modifier(Modifier::REVERSED)
@@ -156,7 +164,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 f.render_stateful_widget(
                     items.block(
                         Block::default()
-                            .title("History List")
+                            .title("History")
                             .borders(Borders::ALL)
                             .border_type(BorderType::Rounded),
                     ),
@@ -175,7 +183,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 f.render_widget(
                     Block::default()
-                        .title("History List")
+                        .title("History")
                         .borders(Borders::ALL)
                         .border_type(BorderType::Rounded),
                     side_chart[1],
@@ -219,7 +227,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             break;
                                         }
 
-                                        list_filled_with_items.push(ListItem::new(command.clone()));
+                                        if command == "clear" {
+                                            list_filled_with_items.clear();
+                                            lotrem_ipsum.clear();
+                                            command.clear();
+                                            current_command_number = 0;
+                                            continue;
+                                        }
+
+                                        list_filled_with_items.push(command.clone());
 
                                         let mut split_command =
                                             command.split(' ').collect::<Vec<&str>>();
@@ -251,12 +267,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                         item_selected = lotrem_ipsum.len() - 1;
                                         command = String::new();
+                                        current_command_number = item_selected + 1;
                                     }
                                     KeyCode::Backspace => {
                                         command.pop();
                                     }
                                     KeyCode::Char(c) => {
                                         command.push(c);
+                                    }
+                                    KeyCode::Up => {
+                                        if current_command_number == list_filled_with_items.len() {
+                                            new_old_command = command.clone();
+                                        }
+                                        current_command_number =
+                                            current_command_number.saturating_sub(1);
+                                        if !list_filled_with_items.is_empty() {
+                                            command = list_filled_with_items
+                                                [current_command_number]
+                                                .clone();
+                                        }
+                                    }
+                                    KeyCode::Down => {
+                                        if current_command_number < list_filled_with_items.len() {
+                                            current_command_number += 1;
+                                        }
+
+                                        command = if current_command_number
+                                            == list_filled_with_items.len()
+                                        {
+                                            new_old_command.clone()
+                                        } else {
+                                            list_filled_with_items[current_command_number].clone()
+                                        };
+                                    }
+                                    KeyCode::Right => {
+                                        current_command_number = list_filled_with_items.len();
+
+                                        command = new_old_command.clone();
                                     }
                                     _ => {}
                                 }
