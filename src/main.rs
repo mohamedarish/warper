@@ -9,7 +9,7 @@ pub mod app;
 pub mod backend;
 pub mod command;
 
-use std::process::Command;
+use std::{env, fs, process::Command};
 
 use crossterm::event::{
     self, DisableMouseCapture, EnableMouseCapture, KeyCode, KeyEvent, KeyModifiers,
@@ -54,6 +54,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut right = 0;
     let mut bottom = 0;
+
+    let current_dir = env::current_dir().expect("Cannot access current directory");
+    let current_director = current_dir.to_str().expect("Cannot convert to string");
+    let mut current_directory = current_director.split('/').collect::<Vec<&str>>();
     loop {
         terminal.draw(|f| {
             right = f.size().width * 8 / 10;
@@ -129,7 +133,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 f.render_widget(
                     Paragraph::new(command.clone()).block(
                         Block::default()
-                            .title("Command Input")
+                            .title(current_directory.join("/"))
                             .borders(Borders::ALL)
                             .border_type(BorderType::Rounded)
                             .border_style(Style::default().fg(Color::Yellow)),
@@ -140,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 f.render_widget(
                     Paragraph::new(command.clone()).block(
                         Block::default()
-                            .title("Command Input")
+                            .title(current_directory.join("/"))
                             .borders(Borders::ALL)
                             .border_type(BorderType::Rounded),
                     ),
@@ -235,6 +239,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             continue;
                                         }
 
+                                        if command.starts_with("cd") {
+                                            let split_command =
+                                                command.split(' ').collect::<Vec<&str>>();
+
+                                            let dir = split_command[1];
+
+                                            if dir == ".." {
+                                                current_directory.pop();
+                                            }
+                                            command = String::new();
+                                            continue;
+                                        }
+
+                                        if command == "pwd" {
+                                            list_filled_with_items.push(command.clone());
+                                            lotrem_ipsum.push(current_directory.join("/"));
+                                            command = String::new();
+                                            continue;
+                                        }
+
                                         list_filled_with_items.push(command.clone());
 
                                         let mut split_command =
@@ -242,6 +266,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                         let command_to_run = Command::new(split_command[0])
                                             .args(&mut split_command[1..])
+                                            .current_dir(current_directory.join("/"))
                                             .output()
                                             .map_or(
                                                 Command::new("echo")
