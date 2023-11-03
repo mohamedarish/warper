@@ -9,7 +9,7 @@ pub mod app;
 pub mod backend;
 pub mod command;
 
-use std::{env, fs, process::Command};
+use std::{env, process::Command};
 
 use crossterm::event::{
     self, DisableMouseCapture, EnableMouseCapture, KeyCode, KeyEvent, KeyModifiers,
