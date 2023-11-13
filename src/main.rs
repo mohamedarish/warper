@@ -1,14 +1,3 @@
-#![warn(
-    clippy::nursery,
-    clippy::unwrap_or_default,
-    // clippy::pedantic,
-    clippy::unwrap_used
-)]
-
-pub mod app;
-pub mod backend;
-pub mod command;
-
 use std::{env, process::Command};
 
 use crossterm::event::{
